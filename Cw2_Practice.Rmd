@@ -1,206 +1,429 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Car Acceptability Classification"
+subtitle: "Exploratory Data Analysis & Machine Learning"
+author: "Priya"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: true
+    code_folding: show
+    df_print: paged
 ---
 
-# Installing needed Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.align = "center",
+	fig.height = 5,
+	fig.width = 7,
+	message = FALSE,
+	warning = FALSE
+)
+```
 
-packages <- c("RWeka", "nnet", "caret", "class", "gmodels", "C50",
+***
+
+# Setup
+
+## Installing & Loading Packages
+
+```{r packages}
+packages <- c("nnet", "caret", "class", "gmodels", "C50",
               "klaR", "e1071", "kernlab", "caTools", "ggplot2", "infotheo",
               "dplyr", "reshape2")
 
-new.packages <- packages[!(packages %in% installed.packages()[, "Package"])] # %in% is contained 
-if(length(new.packages)) install.packages(new.packages)
+new.packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(new.packages)) install.packages(new.packages)
 
 invisible(lapply(packages, library, character.only = TRUE))
+```
 
-# Importing DataSet 
-source_file = "C:/Users/priya/OneDrive - Ulster University/University/Bsc (Hons) Computing System Ulster University/Year 2/Semester 2/project/CW2_Data_Analytics/car.csv"
+## Importing the Dataset
 
-df = read.csv(source_file)
-df = data.frame(lapply(df, factor))
+```{r import-data}
+source_file <- "C:/Users/priya/OneDrive - Ulster University/University/CarSelection_Algorithm/car.csv"
 
-# 1. Exploratory data analysis and data preparation 
+df <- read.csv(source_file)
+```
 
+***
+
+# Exploratory Data Analysis & Data Preparation
+
+## Initial Inspection
+
+```{r eda-initial}
 head(df)
+
+sum(is.na(df))  # Check for missing values
+
+df <- data.frame(lapply(df, factor))  # Convert all columns to factors
 
 summary(df)
 
 str(df)
-# table() function - Counting things 
-table(df$acceptability) 
+```
 
-df$buying = factor(df$buying, levels = c("vhigh", "high", "med", "low"))
+## Counting with `table()`
 
-table(df$buying,df$acceptability) 
-# It shows that low price is more likely to purchased by customers
+`table()` lets us cross-tabulate categorical variables and spot patterns quickly.
 
-summary(df)
-# It tells us that our input features like buying, maint, doors, persons, lug_boot, and safety as roughly distributed data but our traget/outcome feature has undistributed data. 
+```{r table-acceptability}
+table(df$acceptability)
 
+df$buying <- factor(df$buying, levels = c("vhigh", "high", "med", "low"))
+
+table(df$buying, df$acceptability)
+```
+
+> **Insight:** Low-price cars are more commonly rated as acceptable, suggesting price is a key driver of acceptability.
+
+```{r table-safety}
 table(df$safety, df$acceptability)
-# It tells us that 35 high safety cars are vgood whereas low and med are not vgood. People very much high safety cars.
+```
 
-# Plot distributions of variables.
-df$acceptability = factor(df$acceptability, levels = c("unacc","acc","good","vgood")) 
-ggplot(df, aes(x=acceptability)) + geom_bar() 
-![Acceptability](acceptability.png)
+> **Insight:** 35 high-safety cars are rated `vgood`, while `low` and `med` safety cars have zero `vgood` ratings — safety is strongly tied to top ratings.
 
+## Visualising Variable Distributions
 
-# A grouped bar chart
-ggplot(df, aes(x = acceptability, fill = buying ))+ geom_bar()
-![Acceptability VS Buying Plot](buying.png)
+### Acceptability
 
-ggplot(df, aes(x = acceptability, fill = safety)) + geom_bar()
-![Acceptability VS Safety Plot](safety.png)
+```{r plot-acceptability}
+df$acceptability <- factor(df$acceptability, levels = c("unacc", "acc", "good", "vgood"))
 
-ggplot(df, aes(x = acceptability, fill = persons)) + geom_bar()
-![Acceptability VS Persons Plot](persons.png)
+ggplot(df, aes(x = acceptability)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Car Acceptability",
+       x = "Acceptability", y = "Count") +
+  theme_minimal()
+```
 
-ggplot(df, aes(x = acceptability, fill = maint)) + geom_bar()
-![Acceptability VS Maint Plot](maint.png)
+### Acceptability vs. Buying Price
 
-# Mutual information matrix
-Mutual information tells you how strong a relationship is. But it doesn't tell you whether you can trust that relationship is real.
+```{r plot-buying}
+ggplot(df, aes(x = acceptability, fill = buying)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Acceptability by Buying Price",
+       x = "Acceptability", y = "Count", fill = "Buying Price") +
+  theme_minimal()
+```
 
-m = mutinformation(df)
-m 
+### Acceptability vs. Safety
 
-# A neat shortcut this is the quick way to see just the values you care about
-m[7, -7]
-max(m[-7, 7])
+```{r plot-safety}
+ggplot(df, aes(x = acceptability, fill = safety)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Acceptability by Safety Level",
+       x = "Acceptability", y = "Count", fill = "Safety") +
+  theme_minimal()
+```
 
-The diagonal represents self-information — also called entropy. It answers: "How uncertain am I about this variable to start with?"
+### Acceptability vs. Persons
 
-# Chi- Squared Test(X^2)
-Chi-squared compares two things:
+```{r plot-persons}
+ggplot(df, aes(x = acceptability, fill = persons)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Acceptability by Number of Persons",
+       x = "Acceptability", y = "Count", fill = "Persons") +
+  theme_minimal()
+```
 
-Observed counts — what you actually see in your data
-Expected counts — what you'd see if the two variables were completely unrelated
-If observed and expected are close → the variables are likely independent (no real relationship).
-If observed and expected are very different → the variables are likely related.
-# The chi-squared statistic measures: how big is the gap between observed and expected?
+### Acceptability vs. Maintenance Cost
 
+```{r plot-maint}
+ggplot(df, aes(x = acceptability, fill = maint)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Acceptability by Maintenance Cost",
+       x = "Acceptability", y = "Count", fill = "Maintenance") +
+  theme_minimal()
+```
+
+***
+
+# Feature Relationships
+
+## Mutual Information Matrix
+
+Mutual information (MI) measures the **strength** of a relationship between two variables — how much knowing one variable reduces uncertainty about the other.
+
+> **Note:** The diagonal represents *entropy* (self-information) — how uncertain we are about a variable on its own.
+
+```{r mutual-info}
+m <- mutinformation(df)
+m
+```
+
+The values most relevant for modelling are the MI scores between each feature and the target (`acceptability`):
+
+```{r mi-target}
+m[7, -7]           # MI of acceptability vs. all other features
+max(m[-7, 7])      # Feature with the highest MI with acceptability
+```
+
+## Chi-Squared Tests
+
+The chi-squared test compares:
+
+- **Observed counts** — what you see in the data
+- **Expected counts** — what you'd see if the variables were completely unrelated
+
+A **large χ²** means observed counts diverge strongly from expected → evidence of a relationship.
+
+### p-value Interpretation
+
+| p-value         | Interpretation                                            |
+|-----------------|-----------------------------------------------------------|
+| p > 0.05        | Could easily be random luck → no significant relationship |
+| p ≤ 0.05        | Unlikely to be luck → statistically significant           |
+| p < 0.01        | Very unlikely → strong evidence of a relationship         |
+| p < 0.001       | Vanishingly unlikely → overwhelming evidence              |
+
+> **The Courtroom Analogy:** Defendants are presumed innocent (the *null hypothesis* H₀: no relationship). The prosecution must provide enough evidence (small p-value) to convict (reject H₀). Weak evidence (large p-value) → keep H₀.
+
+### Buying vs. Acceptability
+
+```{r chisq-buying-acc}
 chisq.test(df$buying, df$acceptability)
+```
 
-🔢 X-squared = 197.65 — the test statistic
-This is the size of the gap between observed and expected. Bigger number = more evidence of a relationship.
+With **p < 2.2e-16**, we have overwhelming evidence that buying price and acceptability are related. The degrees of freedom `df = 9` comes from (4 levels − 1) × (4 levels − 1) = 9.
 
-Small X² (close to 0) = observed ≈ expected → variables likely independent
-Large X² = observed very different from expected → variables likely related
+### Buying vs. Maintenance
 
-But how big is "big"? That depends on df...
-🔢 df = 9 — degrees of freedom
-This is a technical adjustment based on the table's size. For two variables, it's (rows - 1) × (columns - 1). Here, buying has 4 levels and acceptability has 4 levels: (4-1) × (4-1) = 9.
-
-🔢 p-value < 2.2e-16 — THE MOST IMPORTANT NUMBER ⭐
-This is the probability that you'd see a relationship this strong by pure random chance, IF the two variables were actually independent.
-🚨 This is the heart of every statistical test you'll ever do. Read carefully:
-p-valueInterpretationp > 0.05Could easily be random luck → no significant relationshipp < 0.05Pretty unlikely to be luck → relationship is statistically significantp < 0.01Very unlikely to be luck → strong evidence of relationshipp < 0.001Vanishingly unlikely to be luck → overwhelming evidence
-In our output, p-value < 2.2e-16 means smaller than 2.2 × 10⁻¹⁶ — basically a 0.00000000000000022 chance of being random. We are EXTREMELY confident buying and acceptability are related.
-
+```{r chisq-buying-maint}
 chisq.test(df$buying, df$maint)
+```
 
-🎯 The "null hypothesis" — a key concept
-This is the foundation of all statistical tests, so let me give you a clean definition:
+### Safety vs. Acceptability
 
-Null hypothesis (H₀): "There is NO relationship between the two variables." (The boring default assumption.)
-Alternative hypothesis (H₁): "There IS a relationship."
-
-The chi-squared test tries to reject the null hypothesis. If p-value is small enough (< 0.05), we say: "It's so unlikely we'd see this data under the null hypothesis that we reject it." → variables are related.
-🎨 Courtroom analogy: Defendants are presumed innocent (the null hypothesis). The prosecution must show enough evidence (small p-value) to convict (reject the null). If the evidence is weak (big p-value), the defendant goes free (we keep the null).
-
+```{r chisq-safety-acc}
 chisq.test(df$safety, df$acceptability)
- If you ran that test, you'd see p < 2.2e-16 again — overwhelming evidence. Both MI and chi-squared agree: safety is strongly tied to acceptability. When two methods agree, you can trust the conclusion more. This is called triangulation of evidence, a research best practice
+```
 
-# Train/Test Split
-This is Part 1(v) — the bridge between EDA and ML.
+> Both mutual information and chi-squared agree that **safety is strongly tied to acceptability**. When two independent methods reach the same conclusion, confidence in the finding increases — this is called *triangulation of evidence*.
 
-set.seed(123) # set.seed is about reproducibility — getting the same random result every time, not about fairness.
-split = sample.split(df$acceptability, SplitRatio = 0.8)
-df_train = subset(df, split == TRUE)
-df_test = subset(df, split == FALSE)
+***
 
-#  Verify the split
-Always sanity-check after splitting
-summary(df_train)
-summary(df_test)
+# Train / Test Split
 
-Overfitting = when a model performs well on training data but poorly on new, unseen data.
-The opposite is underfitting — when the model is too simple to even learn the training data well. 
+Splitting the data before modelling is essential to get an honest estimate of how well a model will generalise to new, unseen data.
 
-# prop.table() converts counts into proportions (percentages divided by 100). You should see the proportions are very similar in train and test
+- **Overfitting** — model performs well on training data but poorly on new data
+- **Underfitting** — model is too simple to even capture the training data well
+
+```{r split}
+set.seed(7463)  # For reproducibility
+split    <- sample.split(df$acceptability, SplitRatio = 0.8)
+df_train <- subset(df, split == TRUE)
+df_test  <- subset(df, split == FALSE)
+```
+
+## Verifying the Split
+
+Always sanity-check after splitting to confirm class proportions are preserved.
+
+```{r verify-split}
+cat("Training rows:", nrow(df_train), "\n")
+cat("Test rows:    ", nrow(df_test),  "\n")
 
 prop.table(table(df_train$acceptability))
 prop.table(table(df_test$acceptability))
+```
 
-nrow(df_train)
-nrow(df_test)
+The proportions should be very similar between train and test — confirming a stratified split.
 
-# Machine Learning Algorithms 
-Before we touch any algorithm, let me set up the map of what's coming.
-The assignment asks you to apply 5 algorithms:
+***
 
-Decision Tree (C5.0) 🌳
-Naive Bayes 🎲
-Logistic Regression (multinomial) 📈
-SVM (Support Vector Machine) ✂️
-Neural Network 🧠
+# Machine Learning Algorithms
 
-🎯 The universal ML workflow (memorise this!)
-For every single algorithm, the steps are the same:
-1. TRAIN — feed the algorithm the training data
-   model = algorithm(training_features, training_target)
+The assignment covers five classification algorithms:
 
-2. PREDICT — use the trained model to predict on the test data
-   predictions = predict(model, test_data)
+| Algorithm                | Intuition                                                  |
+|--------------------------|------------------------------------------------------------|
+| **Decision Tree (C5.0)** | Splits data using a series of yes/no questions             |
+| **Naive Bayes**          | Estimates class probabilities from feature likelihoods     |
+| **Logistic Regression**  | Models class probabilities using a linear boundary         |
+| **SVM**                  | Finds the maximum-margin hyperplane separating classes     |
+| **Neural Network**       | Learns non-linear patterns through layered transformations |
 
-3. EVALUATE — compare predictions vs the true test answers
-   confusionMatrix(predictions, true_test_labels)
+## The Universal ML Workflow
 
+For every algorithm, the steps are identical:
 
- The simplest algorithm to start with: Decision Tree
-Why start here? Because decision trees are the most intuitive ML algorithm in existence. A child can understand them.
-🎨 Big analogy: Think of "20 Questions" — that game where you guess what someone is thinking by asking yes/no questions:
+```
+1. TRAIN   → model = algorithm(train_features, train_target)
+2. PREDICT → predictions = predict(model, test_data)
+3. EVALUATE → confusionMatrix(predictions, true_labels)
+```
 
-Q1: Is it alive? → Yes
-Q2: Does it have fur? → Yes
-Q3: Is it bigger than a cat? → No
-Answer: It's a hamster! 🐹
+***
 
-A decision tree does exactly this with your data. It builds a series of questions like:
+## Decision Tree (C5.0)
 
-Q1: Is safety = low? → Yes → predict "unacc" 🚫
-Q1: Is safety = low? → No → ask another question
-Q2: Is persons = 2? → Yes → predict "unacc" 🚫
-Q2: Is persons = 2? → No → ask another question
-...etc
+Decision trees build a series of if/else rules by asking the question that most reduces uncertainty at each step (measured by *information gain*).
 
-Why is it called "C5.0"?
-Several decision tree algorithms exist. The most famous ones:
+**Why C5.0?** It is an evolution of the classic ID3 → C4.5 → C5.0 lineage, with better handling of categorical data and built-in pruning to reduce overfitting.
 
-ID3 (1986)
-C4.5 (1993, an improvement of ID3)
-C5.0 (1998, an improvement of C4.5) — what you're using ⭐
-CART (used in scikit-learn / Python)
+> **Analogy — 20 Questions:** Is safety low? → Yes → predict `unacc`. No → Is persons = 2? → Yes → predict `unacc`. No → ask another question…
 
-They differ in HOW they decide which question to ask first (using metrics like information gain or Gini impurity), and in tricks for avoiding overfitting. C5.0 is one of the best for categorical data — perfect for our car dataset. ✨
+### Training
 
-# Training the model 
+```{r dt-train}
+dt_model <- C5.0(df_train[-7], df_train$acceptability)
+```
 
-Decision tree algorithms 
-dt_model = C5.0(df_train[-7], df_train$acceptability)
+### Prediction
 
+```{r dt-predict}
+dt_pred <- predict(dt_model, df_test)
+```
 
+### Evaluation
 
+A **confusion matrix** is a table that summarises how well a classification model performed by comparing its predictions against the actual known labels. Each **row** represents what the model *predicted*, and each **column** represents the *actual* class. 
 
-# Predict on the test set
-Decision tree algorithms 
-dt_pred = predict(dt_model, df_test)
+- The **diagonal cells** (top-left to bottom-right) are correct predictions.
+- The **off-diagonal cells** are mistakes — where the model predicted one class but the true class was different.
 
+For example, if the model predicted `acc` but the car was actually `good`, that count appears in the `acc` row, `good` column. The further values are from the diagonal, the worse the model is performing.
 
-# Evaluate 
-# confusion matrix — a beautiful table showing what got predicted vs what was actually true. 
-Decision tree algorithms 
+```{r dt-evaluate}
 confusionMatrix(dt_pred, df_test$acceptability)
+```
 
+**Key metrics to focus on:**
+
+| Metric                         |     What it means                                                                    |
+|--------------------------------|--------------------------------------------------------------------------------------|
+| **Accuracy**                   | % of all predictions that were correct (96.5%)                                       |
+| **Kappa**                      | Accuracy adjusted for chance — 0.925 indicates excellent agreement                   |
+| **Sensitivity**                | Of all *actual* cars in a class, how many were correctly identified (e.g., `good` = 87.5%) |
+| **Specificity**                | Of all cars *not* in a class, how many were correctly excluded (e.g., `acc` = 97.4%) |
+| **Balanced Accuracy**          | Average of Sensitivity & Specificity — useful when classes are imbalanced            |
+| **Pos Pred Value (Precision)** | When the model predicts a class, how often it is correct (e.g., when it predicts `good`, it is right 77.8% of the time) |
+| **Neg Pred Value**             | When the model predicts *not* a class, how often it is correct (e.g., 99.5% for `good` — almost never misses a non-good car) |
+| **Prevalence**                 | How common each class actually is in the test set (`unacc` dominates at 69.5%) |
+| **Detection Rate**             | % of the entire test set correctly identified as that class — True Positives divided by total cases |
+| **Detection Prevalence**       | % of the entire test set *predicted* as that class — if much higher than Detection Rate, the model is over-predicting that class |
+
+Because `vgood` had very few cases in the test set, the model achieved 100% Sensitivity and Specificity for that class, but this should be interpreted cautiously given the small sample.
+
+***
+
+## Naive Bayes
+
+Where decision trees ask *questions*, Naive Bayes calculates *probabilities*. It estimates the probability of each class given the observed features, then picks the class with the highest probability.
+
+> **Analogy — Identifying Fruit:** You see something yellow, curved, and 15 cm long. Your brain combines past experience ("most yellow curved fruits are bananas") to conclude — with high confidence — it's a banana. Naive Bayes does exactly this using **Bayes' Theorem**.
+
+The "naive" part: it assumes all features are *independent* of each other given the class, which is rarely true in practice but works surprisingly well.
+
+### Training, Prediction & Evaluation
+
+```{r nb-all}
+set.seed(7463)
+nb_model <- naiveBayes(df_train[, -7], df_train$acceptability)
+nb_pred  <- predict(nb_model, df_test)
+confusionMatrix(nb_pred, df_test$acceptability)
+```
+
+***
+## Multinomial Logistic Regression
+
+Multinomial logistic regression extends binary logistic regression to handle more than two classes. It fits one model per class against a reference class, then converts the log-odds into class probabilities using the **softmax** function.
+
+> **Analogy — Opinion Polls:** Each feature casts a weighted vote for each class. The class that accumulates the most evidence (highest probability) wins.
+
+The `multinom()` function from the `nnet` package is used here. `trace = FALSE` suppresses per-iteration output.
+
+### Training, Prediction & Evaluation
+
+```{r lg-all}
+set.seed(7463)
+lg_model <- multinom(acceptability ~ ., data = df_train, trace = FALSE)
+lg_pred  <- predict(lg_model, df_test)
+confusionMatrix(lg_pred, df_test$acceptability)
+```
+
+***
+
+## Support Vector Machine (SVM)
+
+SVMs find the **maximum-margin hyperplane** that best separates classes in feature space. Using the **radial basis function (RBF) kernel**, SVMs can model non-linear decision boundaries by implicitly mapping data into a higher-dimensional space.
+
+> **Analogy — Widest Road:** Imagine drawing a road between two groups of points. SVM finds the road that is as wide as possible — the points touching the road edges are the "support vectors".
+
+### Training, Prediction & Evaluation
+
+```{r svm-all}
+set.seed(7463)
+svm_model <- ksvm(acceptability ~ ., data = df_train, kernel = "rbfdot")
+svm_pred  <- predict(svm_model, df_test)
+confusionMatrix(svm_pred, df_test$acceptability)
+```
+
+***
+
+## Neural Network
+
+Neural networks learn patterns through layered transformations. An **input layer** receives the features, one or more **hidden layers** apply non-linear activations, and an **output layer** produces class probabilities via softmax.
+
+> **Analogy — Brain Neurons:** Just as biological neurons fire when stimulated enough, artificial neurons activate when a weighted sum of inputs exceeds a threshold — cascading through layers to produce a prediction.
+
+The `nnet()` function fits a single hidden-layer network. `size` controls the number of hidden units; `maxit` sets the maximum training iterations.
+
+### Training, Prediction & Evaluation
+
+```{r nn-all}
+set.seed(7463)
+nn_model <- nnet(acceptability ~ ., data = df_train,
+                 size = 5, maxit = 200, trace = FALSE)
+nn_pred  <- predict(nn_model, df_test, type = "class")
+confusionMatrix(
+  factor(nn_pred, levels = levels(df_test$acceptability)),
+  df_test$acceptability
+)
+```
+
+***
+
+# Model Comparison
+
+The table below summarises overall accuracy for each model on the held-out test set.
+
+```{r model-comparison}
+results <- data.frame(
+  Model = c("Decision Tree (C5.0)", "Naive Bayes",
+            "Logistic Regression", "SVM", "Neural Network"),
+  Accuracy = c(
+    confusionMatrix(dt_pred,  df_test$acceptability)$overall["Accuracy"],
+    confusionMatrix(nb_pred,  df_test$acceptability)$overall["Accuracy"],
+    confusionMatrix(lg_pred,  df_test$acceptability)$overall["Accuracy"],
+    confusionMatrix(svm_pred, df_test$acceptability)$overall["Accuracy"],
+    confusionMatrix(
+      factor(nn_pred, levels = levels(df_test$acceptability)),
+      df_test$acceptability
+    )$overall["Accuracy"]
+  )
+)
+
+results$Accuracy <- round(results$Accuracy * 100, 2)
+results[order(-results$Accuracy), ]
+```
+
+```{r plot-comparison}
+ggplot(results, aes(y = reorder(Model, Accuracy), x = Accuracy)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = paste0(Accuracy, "%")), hjust = -0.1, size = 3.5) +
+  labs(title = "Model Accuracy on Test Set",
+       y = NULL, x = "Accuracy (%)") +
+  theme_minimal() +
+  xlim(0, 105)
+```
