@@ -1,9 +1,12 @@
 ---
 title: "CW2_Data Analytics"
-subtitle: "Exploratory Data Analysis & Machine Learning"
 author: "Priyanshu Thakur"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+    latex_engine: xelatex
   html_document:
     theme: flatly
     highlight: tango
@@ -15,7 +18,8 @@ output:
     number_sections: true
     code_folding: show
     df_print: paged
-    css: !expr "NULL"
+    css: 'NULL'
+subtitle: Exploratory Data Analysis & Machine Learning
 ---
 
 ```{r setup, include=FALSE}
@@ -78,7 +82,7 @@ head(df, 10)
 ```
 
 ```{r eda-summary}
-cat("Dimensions:", nrow(df), "rows ×", ncol(df), "columns\n")
+cat("Dimensions:", nrow(df), "rows", ncol(df), "columns\n")
 cat("Missing values:", sum(is.na(df)), "\n\n")
 
 df =data.frame(lapply(df, factor))
@@ -96,22 +100,77 @@ str(df)
 
 `table()` lets us cross-tabulate categorical variables and spot patterns quickly.
 
-### Buying Price vs. Acceptability
+### Buying vs. Acceptability
 
-```{r table-acceptability}
+```{r table Buying vs Acceptability}
+df$acceptability =factor(df$acceptability, levels = c("unacc", "acc", "good", "vgood"))
 df$buying = factor(df$buying, levels = c("vhigh", "high", "med", "low"))
 
 knitr::kable(
   addmargins(table(df$buying, df$acceptability)),
-  caption = "Buying Price vs. Acceptability"
+  caption = "Buying vs. Acceptability"
 )
 ```
 
-> **Insight:** Low-price cars are more commonly rated as acceptable, suggesting price is a key driver of acceptability.
+> **Insight:** Low-price cars are more commonly rated as acceptable, suggesting price can be a key driver of acceptability.
+
+### Maintenance vs Acceptability
+
+```{r table Maintenace vs Acceptability}
+df$maint = factor(df$maint, levels = c("vhigh", "high", "med", "low"))
+
+knitr::kable(
+  addmargins(table(df$maint, df$acceptability)),
+  caption = "Maintenace vs. Acceptability"
+)
+```
+
+> **Insight:** low maintenace cars are rated as acceptable, suggesting maintenace can be a key driver of acceptability.
+
+### Doors vs. Acceptability
+
+```{r table Doors vs Acceptability}
+df$doors = factor(df$doors, levels = c("2", "3", "4", "5more"))
+
+knitr::kable(
+  addmargins(table(df$doors, df$acceptability)),
+  caption = "Doors vs. Acceptability"
+)
+```
+
+> **Insight:** 5more doors cars are more commonly rated as acceptable, suggesting doors can be a key driver of acceptability.
+
+### Persons vs. Acceptability
+
+```{r table Persons vs Acceptability}
+df$persons = factor(df$persons, levels = c("2", "4", "more"))
+
+knitr::kable(
+  addmargins(table(df$persons, df$acceptability)),
+  caption = "persons vs. Acceptability"
+)
+```
+
+> **Insight:** more persons cars are more commonly rated as acceptable, suggesting persons can be a key driver of acceptability.
+
+### lug_boot vs. Acceptability
+
+```{r table lug_boot vs Acceptability}
+df$lug_boot = factor(df$lug_boot, levels = c("big", "med", "small"))
+
+knitr::kable(
+  addmargins(table(df$lug_boot, df$acceptability)),
+  caption = "lug_boot vs. Acceptability"
+)
+```
+
+> **Insight:** Big lug_boot cars are more commonly rated as acceptable, suggesting size can be a key driver of acceptability.
 
 ### Safety vs. Acceptability
 
-```{r table-safety}
+```{r table safety vs Acceptability}
+df$safety = factor(df$safety, levels = c("vhigh", "high", "med", "low"))
+
 knitr::kable(
   addmargins(table(df$safety, df$acceptability)),
   caption = "Safety vs. Acceptability"
@@ -127,8 +186,6 @@ All figures in this report were produced using the `ggplot2` package (Wickham, 2
 ### Acceptability
 
 ```{r plot-acceptability, fig.cap="The dataset is heavily imbalanced — 'unacc' dominates."}
-df$acceptability =factor(df$acceptability, levels = c("unacc", "acc", "good", "vgood"))
-
 ggplot(df, aes(x = acceptability)) +
   geom_bar(fill = "steelblue", width = 0.6) +
   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5, size = 3.5) +
@@ -138,7 +195,7 @@ ggplot(df, aes(x = acceptability)) +
 ```
 > **Description:** The target variable is heavily imbalanced. The unacc class dominates while vgood is rarest. This imbalance has direct implications for evaluationoverall accuracy alone may be misleading, so per-class metrics such as sensitivity must also be considered (Lantz, 2019).
 
-### Buying Price
+### Buying price
 
 ```{r plot-buying, fig.cap="Very-high and high buying prices dominate the 'unacc' category."}
 ggplot(df, aes(x = acceptability, fill = buying)) +
@@ -171,16 +228,17 @@ ggplot(df, aes(x = acceptability, fill = persons)) +
 ```
 > **Description:** Cars seating only 2 persons are exclusively rated `unacc`, making person capacity a hard constraint on acceptability. Cars with 4 or more seats are distributed across all classes, though `unacc` still dominates due to other factors.
 
-### Maintenance Cost
+### Doors
 
 ```{r plot-maint, fig.cap="High maintenance costs mirror the pattern seen with buying price."}
-ggplot(df, aes(x = acceptability, fill = maint)) +
+ggplot(df, aes(x = acceptability, fill = doors)) +
   geom_bar(position = "dodge") +
-  labs(title = "Acceptability by Maintenance Cost",
-       x = "Acceptability", y = "Count", fill = "Maintenance") +
+  labs(title = "Acceptability by Doors",
+       x = "Acceptability", y = "Count", fill = "Doors") +
   theme_minimal(base_size = 13)
 ```
-> **Description:** The pattern mirrors buying price very high and high maintenance costs are heavily concentrated in the `unacc` category. However, maintenance has a slightly weaker relationship with acceptability than buying price, consistent with its lower mutual information score.
+
+> **Description:** The pattern mirrors 5more has more good and vgood acceptability.
 
 ***
 
@@ -209,7 +267,7 @@ mi_df =data.frame(
 knitr::kable(mi_df, digits = 4, caption = "Mutual Information with Acceptability (ranked)")
 ```
 
-```{r mi-plot, fig.height=3.5, fig.cap="Safety, persons and lug_boot carry the most information about acceptability."}
+```{r mi-plot, fig.cap="The feature with the highest mutual information explains the most information about acceptability."}
 ggplot(mi_df, aes(y = reorder(Feature, MI), x = MI)) +
   geom_col(fill = "steelblue", width = 0.6) +
   geom_text(aes(label = round(MI, 3)), hjust = -0.1, size = 3.5) +
@@ -248,6 +306,12 @@ With **p < 2.2e-16**, we have strong evidence that buying price and acceptabilit
 chisq.test(df$buying, df$maint)
 ```
 With **p < 0.8039**, It shows that buying and maintenance are not related. Hence, we accept Null Hypothesis.
+
+### lug_boot vs. Acceptability
+
+```{r chisq-lug_boot-acc}
+chisq.test(df$lug_boot, df$acceptability)
+```
 
 ### Safety vs. Acceptability
 
@@ -325,8 +389,9 @@ Decision trees build a series of if/else rules by asking the question that most 
 ### Training & Prediction
 
 ```{r dt-train-predict}
+set.seed(7463)
 dt_model = C5.0(df_train[-7], df_train$acceptability)
-dt_pred  =predict(dt_model, df_test)
+dt_pred  = predict(dt_model, df_test)
 ```
 
 ### Evaluation
@@ -413,6 +478,7 @@ Neural networks learn patterns through layered transformations. An **input layer
 > **Analogy:** Just as biological neurons fire when sufficiently stimulated, artificial neurons activate when a weighted sum of inputs exceeds a threshold, cascading through layers to produce a prediction.
 
 ```{r nn-all}
+set.seed(7463)
 nn_model = nnet(acceptability ~., data = df_train, size = 5, trace = FALSE)
 nn_pred = predict(nn_model, df_test, type = "class")
 confusionMatrix(factor(nn_pred), df_test$acceptability)
@@ -487,7 +553,7 @@ set.seed(7463)
 dt_cv_model = train(df_train[-7], df_train$acceptability,
                      method = "C5.0", trControl = ctrl)
 dt_cv_pred  = predict(dt_cv_model, df_test)
-confusionMatrix(dt_cv_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(dt_cv_pred, df_test$acceptability)
 ```
 
 > **Insight:** Cross-validated accuracy (97.5%) slightly exceeds the single split baseline (96.5%), confirming the Decision Tree's strong and stable performance.
@@ -499,7 +565,7 @@ set.seed(7463)
 nb_cv_model = train(df_train[-7], df_train$acceptability,
                      method = "nb", trControl = ctrl)
 nb_cv_pred  = predict(nb_cv_model, df_test)
-confusionMatrix(nb_cv_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(nb_cv_pred, df_test$acceptability)
 ```
 
 > **Insight:** Naive Bayes accuracy remains at 84.0%, unchanged from the baseline, indicating its limitations are structural rather than a product of the particular train/test split.
@@ -511,7 +577,7 @@ set.seed(7463)
 lg_cv_model = train(df_train[, -7], df_train$acceptability,
                      method = "multinom", trControl = ctrl, trace = FALSE)
 lg_cv_pred  = predict(lg_cv_model, df_test)
-confusionMatrix(lg_cv_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(lg_cv_pred, df_test$acceptability)
 ```
 
 > **Insight:** Logistic Regression holds steady at 92.5%, closely matching its baseline of 93.0%.
@@ -523,7 +589,7 @@ set.seed(7463)
 nn_cv_model = train(df_train[, -7], df_train$acceptability,
                      method = "nnet", trControl = ctrl, trace = FALSE)
 nn_cv_pred  = predict(nn_cv_model, df_test)
-confusionMatrix(nn_cv_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(nn_cv_pred, df_test$acceptability)
 ```
 
 > **Insight:** The Neural Network reaches 97.5% under CV, matching the Decision Tree and improving slightly on its 96.5% baseline.
@@ -535,7 +601,7 @@ set.seed(7463)
 svm_cv_model = ksvm(acceptability ~ ., data = df_train,
                      kernel = "vanilladot", cross = 10)
 svm_cv_pred  = predict(svm_cv_model, df_test)
-confusionMatrix(svm_cv_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(svm_cv_pred, df_test$acceptability)
 ```
 
 > **Insight:** SVM accuracy remains at 92.0%, identical to the baseline.
@@ -580,6 +646,7 @@ Not all features contribute equally to classification.So, Its better to drop the
 > **Important:** Feature selection must only inspect the **training data**. Looking at the test data here would leak information and inflate test accuracy artificially.
 
 ```{r fs-mi-training}
+set.seed(7463)
 m_train = mutinformation(df_train)
 round(m_train[7, -7], 4)
 ```
@@ -591,7 +658,8 @@ By using **mutual information** as a filter, we identify the three most informat
 We select columns by **name** (not index). cleaner and less error-prone.
 
 ```{r fs-build}
-top_features = c("safety", "persons", "buying")
+set.seed(7463)
+top_features = c("safety", "persons", "lug_boot")
 df_train_fs  = df_train[, c(top_features, "acceptability")]
 df_test_fs   = df_test[,  c(top_features, "acceptability")]
 
@@ -611,9 +679,10 @@ For Naive Bayes specifically, removing features often **improves** performance b
 ### Decision Tree Selected Features
 
 ```{r fs-dt}
+set.seed(7463)
 dt_fs_model = C5.0(df_train_fs[, -4], df_train_fs$acceptability)
 dt_fs_pred  = predict(dt_fs_model, df_test_fs)
-confusionMatrix(dt_fs_pred, df_test_fs$acceptability)$overall["Accuracy"]
+confusionMatrix(dt_fs_pred, df_test_fs$acceptability)
 ```
 
 > **Insight:** Dropping from 6 to 3 features causes a large accuracy drop (96.5% → 80.0%), indicating the Decision Tree leverages interactions among all features, including those with individually low MI scores.
@@ -621,30 +690,33 @@ confusionMatrix(dt_fs_pred, df_test_fs$acceptability)$overall["Accuracy"]
 ### Naive Bayes Selected Features
 
 ```{r fs-nb}
+set.seed(7463)
 nb_fs_model = naiveBayes(df_train_fs[, -4], df_train_fs$acceptability)
 nb_fs_pred  =predict(nb_fs_model, df_test_fs)
-confusionMatrix(nb_fs_pred, df_test_fs$acceptability)$overall["Accuracy"]
+confusionMatrix(nb_fs_pred, df_test_fs$acceptability)
 ```
-Feature selection dramatically improved Naive Bayes accuracy. This is because reducing features from 6 to 3 lessens violations of NB's independence assumption, while the retained features (safety, persons, buying) carry the strongest signal.
+> **Insight:** Feature selection dramatically decreased Naive Bayes accuracy. This is because reducing features from 6 to 3 lessens violations of NB's independence assumption, while the retained features (safety, persons, lug_boot) carry the strongest signal.
 
 ### Logistic Regression Selected Features
 
 ```{r fs-lg}
+set.seed(7463)
 lg_fs_model =multinom(acceptability ~ safety + persons + buying,
                         data = df_train, trace = FALSE)
 lg_fs_pred  =predict(lg_fs_model, df_test)
-confusionMatrix(lg_fs_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(lg_fs_pred, df_test$acceptability)
 ```
 
-> **Insight:** Logistic Regression drops from 93.0% to 80.0%, a 13 percentage-point loss, suggesting the removed features (`maint`, `lug_boot`, `doors`) contributed meaningfully to the linear decision boundary.
+> **Insight:** Logistic Regression drops from 93.0% to 80.0%, a 13 percentage-point loss, suggesting the removed features (`maint`, `buying`, `doors`) contributed meaningfully to the linear decision boundary.
 
 ### SVM Selected Features
 
 ```{r fs-svm}
+set.seed(7463)
 svm_fs_model =ksvm(acceptability ~ safety + persons + buying,
                      data = df_train, kernel = "vanilladot")
 svm_fs_pred  =predict(svm_fs_model, df_test)
-confusionMatrix(svm_fs_pred, df_test$acceptability)$overall["Accuracy"]
+confusionMatrix(svm_fs_pred, df_test$acceptability)
 ```
 
 > **Insight:** SVM drops from 92.0% to 80.0%, a 12 percentage-point decrease, showing that the margin-based classifier also depends on the full feature set.
@@ -657,7 +729,7 @@ nn_fs_model =nnet(acceptability ~ persons + buying + safety,
                     data = df_train, size = 5, trace = FALSE)
 nn_fs_pred  =predict(nn_fs_model, df_test, type = "class")
 confusionMatrix(factor(nn_fs_pred, levels = levels(df_test$acceptability)),
-                df_test$acceptability)$overall["Accuracy"]
+                df_test$acceptability)
 ```
 
 > **Insight:** The Neural Network suffers the largest absolute drop (96.5% → 79.0%), consistent with neural networks benefiting from richer input to capture feature interactions.
@@ -667,16 +739,17 @@ confusionMatrix(factor(nn_fs_pred, levels = levels(df_test$acceptability)),
 A useful sanity check: keep the top 4 features (add `maint`) and re-run the Decision Tree. If accuracy with 4 features ≈ accuracy with all 6, then `lug_boot` and `doors` are confirmed as truly redundant.
 
 ```{r fs-top4}
+set.seed(7463)
 top_features_4 =c("safety", "persons", "buying", "maint")
 df_train_fs4   =df_train[, c(top_features_4, "acceptability")]
 df_test_fs4    =df_test[,  c(top_features_4, "acceptability")]
 
 dt_fs4_model =C5.0(df_train_fs4[, -5], df_train_fs4$acceptability)
 dt_fs4_pred  =predict(dt_fs4_model, df_test_fs4)
-confusionMatrix(dt_fs4_pred, df_test_fs4$acceptability)$overall["Accuracy"]
+confusionMatrix(dt_fs4_pred, df_test_fs4$acceptability)
 ```
 
-> **Insight:** Adding `maint` as a fourth feature recovers the Decision Tree to 88.0% — midway between 80.0% (top 3) and 96.5% (all 6) — confirming that each additional feature contributes incrementally and that `lug_boot` and `doors` still carry some useful signal.
+> **Insight:** Adding `maint` as a fourth feature recovers the Decision Tree to 88.0% — midway between 80.0% (top 3) and 96.5% (all 6) — confirming that each additional feature contributes incrementally and that `buying` and `doors` still carry some useful signal.
 
 ### Feature Selection Summary
 
@@ -722,7 +795,7 @@ ggplot(fs_long, aes(x = Model, y = Accuracy, color = Features, group = Features)
   theme(axis.text.x = element_text(angle = 20, hjust = 1)) +
   ylim(0, 110)
 ```
-> **Description:** Reducing the feature set to the top 3 by mutual information (safety, persons, buying) keeps performance comparable for most models. The Neural Network and Decision Tree in particular loses accuracy, as they benefits from richer input to model interactions between features.
+> **Description:** Reducing the feature set to the top 3 by mutual information (safety, persons, lug_boot) keeps performance comparable for most models. The Neural Network and Decision Tree in particular loses accuracy, as they benefits from richer input to model interactions between features.
 
 ***
 
@@ -741,6 +814,7 @@ ctrl_tune =trainControl(method = "repeatedcv", number = 10, repeats = 10)
 We tune the `decay` parameter (weight regularisation) while fixing the hidden layer size to 5.
 
 ```{r tune-nn, fig.cap="Neural Network — accuracy across decay values."}
+set.seed(7463)
 grid_nn =expand.grid(size = 5,
                        decay = c(0, 0.001, 0.005, 0.01, 0.02, 0.05, 0.1))
 
@@ -758,6 +832,7 @@ plot(nn_tuned, main = "Neural Network Tuning (Decay vs Accuracy)")
 We search across different numbers of boosting **trials**, a additional passes that focus on previously misclassified examples.
 
 ```{r tune-dt, fig.cap="Decision Tree — accuracy across boosting trials."}
+set.seed(7463)
 grid_dt =expand.grid(model  = "tree",
                        trials = c(1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100),
                        winnow = FALSE)
@@ -776,6 +851,7 @@ plot(dt_tuned, main = "Decision Tree Tuning (Trials vs Accuracy)")
 We tune the **Laplace correction** (`fL`) parameter, which smooths zero-frequency class–feature combinations.
 
 ```{r tune-nb, fig.cap="Naive Bayes — accuracy across Laplace correction values."}
+set.seed(7463)
 grid_nb =expand.grid(fL = c(0, 0.5, 1, 1.5, 2),
                        usekernel = FALSE, adjust = 1)
 
@@ -793,6 +869,7 @@ plot(nb_tuned, main = "Naive Bayes Tuning (Laplace fL vs Accuracy)")
 For multinomial logistic regression, we tune the **weight decay** parameter to regularise and prevent overfitting.
 
 ```{r tune-lg, fig.cap="Logistic Regression — accuracy across weight decay values."}
+set.seed(7463)
 grid_lg =expand.grid(decay = c(0, 0.001, 0.01, 0.05, 0.1, 0.5))
 
 set.seed(7463)
@@ -809,6 +886,7 @@ plot(lg_tuned, main = "Logistic Regression Tuning (Decay vs Accuracy)")
 For a linear SVM, the primary hyperparameter is **C** (cost). Lower C favours a wider margin; higher C penalises misclassifications more aggressively.
 
 ```{r tune-svm, fig.cap="SVM — accuracy across cost values."}
+set.seed(7463)
 grid_svm =expand.grid(C = c(0.001, 0.01, 0.1, 1, 10, 100))
 
 set.seed(7463)
