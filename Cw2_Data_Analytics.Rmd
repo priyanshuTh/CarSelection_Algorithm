@@ -118,7 +118,7 @@ knitr::kable(
 )
 ```
 
-> **Insight:** 35 high-safety cars are rated `vgood`, while `low` and `med` safety cars have zero `vgood` ratings — safety is strongly tied to top ratings.
+> **Insight:** 35 high safety cars are rated `vgood`, while `low` and `med` safety cars have zero `vgood` ratings. Safety is strongly tied to top ratings.
 
 ## Visualising Variable Distributions {.tabset}
 
@@ -136,6 +136,7 @@ ggplot(df, aes(x = acceptability)) +
        x = "Acceptability", y = "Count") +
   theme_minimal(base_size = 13)
 ```
+> **Description:** The target variable is heavily imbalanced. The unacc class dominates while vgood is rarest. This imbalance has direct implications for evaluationoverall accuracy alone may be misleading, so per-class metrics such as sensitivity must also be considered (Lantz, 2019).
 
 ### Buying Price
 
@@ -146,6 +147,7 @@ ggplot(df, aes(x = acceptability, fill = buying)) +
        x = "Acceptability", y = "Count", fill = "Buying Price") +
   theme_minimal(base_size = 13)
 ```
+> **Description:** Very-high and high buying prices are concentrated in the `unacc` category, while lower prices (`low`, `med`) are spread more evenly across acceptability levels. This suggests that high cost is a barrier to acceptability but low cost alone does not guarantee a favourable rating.
 
 ### Safety
 
@@ -156,6 +158,7 @@ ggplot(df, aes(x = acceptability, fill = safety)) +
        x = "Acceptability", y = "Count", fill = "Safety") +
   theme_minimal(base_size = 13)
 ```
+> **Description:** Safety appears to be the strongest predictor of acceptability. Cars with low safety are never rated acc, good, or vgood, and vgood cars exclusively have high safety. This visual finding is later confirmed by both mutual information and chi-squared analysis an example of triangulation of evidence.
 
 ### Persons
 
@@ -166,6 +169,7 @@ ggplot(df, aes(x = acceptability, fill = persons)) +
        x = "Acceptability", y = "Count", fill = "Persons") +
   theme_minimal(base_size = 13)
 ```
+> **Description:** Cars seating only 2 persons are exclusively rated `unacc`, making person capacity a hard constraint on acceptability. Cars with 4 or more seats are distributed across all classes, though `unacc` still dominates due to other factors.
 
 ### Maintenance Cost
 
@@ -176,6 +180,7 @@ ggplot(df, aes(x = acceptability, fill = maint)) +
        x = "Acceptability", y = "Count", fill = "Maintenance") +
   theme_minimal(base_size = 13)
 ```
+> **Description:** The pattern mirrors buying price very high and high maintenance costs are heavily concentrated in the `unacc` category. However, maintenance has a slightly weaker relationship with acceptability than buying price, consistent with its lower mutual information score.
 
 ***
 
@@ -183,7 +188,7 @@ ggplot(df, aes(x = acceptability, fill = maint)) +
 
 ## Mutual Information Matrix
 
-Mutual information (MI) measures the **strength** of a relationship between two variables — how much knowing one variable reduces uncertainty about the other (Cover and Thomas, 2006).
+Mutual information (MI) measures the **strength** of a relationship between two variables. How much knowing one variable reduces uncertainty about the other.
 
 > **Note:** The diagonal represents *entropy* (self-information), how uncertain we are about a variable on its own.
 
@@ -214,6 +219,8 @@ ggplot(mi_df, aes(y = reorder(Feature, MI), x = MI)) +
   xlim(0, max(mi_df$MI) * 1.15)
 ```
 
+> **Description:** Safety, persons, and buying carry the strongest signal about acceptability, while doors carries almost none. This ranking directly informs the filter-based feature
+
 ## Chi-Squared Tests
 
 The chi-squared test compares **observed counts** against **expected counts**. A large χ² statistic implies a genuine association.
@@ -225,7 +232,7 @@ The chi-squared test compares **observed counts** against **expected counts**. A
 | p < 0.01    | Strong evidence of a relationship              |
 | p < 0.001   | Overwhelming evidence                          |
 
-> **The Analogy:** The null hypothesis (H₀: no relationship) is like a defendant presumed innocent. The prosecution must provide enough evidence (small p-value) to convict (reject H₀).
+> **Analogy:** The null hypothesis (H₀: no relationship) is like a defendant presumed innocent. The prosecution must provide enough evidence (small p-value) to convict (reject H₀).
 
 ### Buying vs. Acceptability
 
@@ -313,7 +320,7 @@ Decision trees build a series of if/else rules by asking the question that most 
 
 **Why C5.0?** It is the latest in the ID3 → C4.5 → C5.0 lineage, with better handling of categorical data and built-in pruning to reduce overfitting.
 
-> **Analogy — 20 Questions:** Is safety low? → Yes → predict `unacc`. No → Is persons = 2? → Yes → predict `unacc`. No → ask another question…
+> **Analogy:** Is safety low? → Yes → predict `unacc`. No → Is persons = 2? → Yes → predict `unacc`. No → ask another question…
 
 ### Training & Prediction
 
@@ -325,10 +332,6 @@ dt_pred  =predict(dt_model, df_test)
 ### Evaluation
 
 A **confusion matrix** compares predictions against actual labels. Diagonal cells are correct predictions; off-diagonal cells are errors.
-
-```{r dt-evaluate}
-confusionMatrix(dt_pred, df_test$acceptability)
-```
 
 **Key metrics explained:**
 
@@ -342,13 +345,19 @@ confusionMatrix(dt_pred, df_test$acceptability)
 | **Precision (PPV)**  | When the model predicts a class, how often is it correct                    |
 | **Detection Rate**   | % of the entire test set correctly identified as that class                 |
 
+```{r dt-evaluate}
+confusionMatrix(dt_pred, df_test$acceptability)
+```
+
+> **Insight:** The Decision Tree achieves 96.5% accuracy and a Kappa of 0.92. It correctly identifies all `good` cars (sensitivity = 1.0) but is weakest on `vgood` (sensitivity = 0.71), likely due to the small number of examples in that class.
+
 ***
 
 ## Naive Bayes
 
 Where decision trees ask *questions*, Naive Bayes calculates *probabilities*. It estimates the probability of each class given the features, then picks the most likely class.
 
-> **Analogy:** You see something yellow, curved, and 15 cm long. Your brain combines past experience ("most yellow curved fruits are bananas") to conclude it's a banana. Naive Bayes does exactly this using **Bayes' Theorem**.
+> **Analogy:** You see something red, circular. Your brain combines past experience ("most red circular fruits are apples") to conclude it's an apple. Naive Bayes does exactly this using **Bayes' Theorem**.
 
 The "naive" assumption: all features are *independent* given the class rarely true, but often effective in practice.
 
@@ -358,6 +367,8 @@ nb_model = naiveBayes(df_train[, -7], df_train$acceptability)
 nb_pred  =predict(nb_model, df_test)
 confusionMatrix(nb_pred, df_test$acceptability)
 ```
+
+> **Insight:** Naive Bayes reaches 84% accuracy but struggles with the minority classes sensitivity for `good` is only 12.5%, meaning most `good` cars are misclassified. This reflects both the class imbalance and violations of the independence assumption.
 
 ***
 
@@ -374,6 +385,8 @@ lg_pred  =predict(lg_model, df_test)
 confusionMatrix(lg_pred, df_test$acceptability)
 ```
 
+> **Insight:** Logistic Regression achieves 93% accuracy with more balanced per-class sensitivity than Naive Bayes (e.g. 87.5% for `good` and 85.7% for `vgood`), indicating it handles minority classes more effectively.
+
 ***
 
 ## Support Vector Machine (SVM)
@@ -389,6 +402,8 @@ svm_pred  =predict(svm_model, df_test)
 confusionMatrix(svm_pred, df_test$acceptability)
 ```
 
+> **Insight:** SVM achieves 92% accuracy and perfect sensitivity for `acc` (1.0), but only 12.5% for `good` almost all `good` cars are misclassified. This sharp imbalance suggests the RBF kernel decision boundary does not separate `good` from neighbouring classes well.
+
 ***
 
 ## Neural Network
@@ -398,15 +413,13 @@ Neural networks learn patterns through layered transformations. An **input layer
 > **Analogy:** Just as biological neurons fire when sufficiently stimulated, artificial neurons activate when a weighted sum of inputs exceeds a threshold, cascading through layers to produce a prediction.
 
 ```{r nn-all}
-set.seed(7463)
-nn_model = nnet(acceptability ~ ., data = df_train,
-                 size = 5, maxit = 200, trace = FALSE)
-nn_pred  =predict(nn_model, df_test, type = "class")
-confusionMatrix(
-  factor(nn_pred, levels = levels(df_test$acceptability)),
-  df_test$acceptability
-)
+nn_model = nnet(acceptability ~., data = df_train, size = 5, trace = FALSE)
+nn_pred = predict(nn_model, df_test, type = "class")
+confusionMatrix(factor(nn_pred), df_test$acceptability)
 ```
+
+> **Insight:** The Neural Network matches the Decision Tree at 96.5% accuracy and delivers the most balanced sensitivity across all four classes (≥ 85.7%), making it the strongest overall baseline model when per-class performance is considered.
+
 
 ***
 
@@ -437,6 +450,8 @@ knitr::kable(results, row.names = FALSE,
              caption = "Test Set Accuracy — Baseline Models")
 ```
 
+> **Insight:** Decision Tree and Neural Network are tied at 96.5%, well ahead of Logistic Regression (93.0%), SVM (92.0%), and Naive Bayes (84.0%). The gap between the top two and the rest suggests that models capable of capturing non-linear interactions have an advantage on this dataset.
+
 ```{r plot-comparison, fig.height=3.5, fig.cap="Baseline model accuracy on the held-out test set."}
 ggplot(results, aes(y = reorder(Model, Accuracy), x = Accuracy)) +
   geom_col(fill = "steelblue", width = 0.6) +
@@ -446,6 +461,8 @@ ggplot(results, aes(y = reorder(Model, Accuracy), x = Accuracy)) +
   theme_minimal(base_size = 13) +
   xlim(0, 105)
 ```
+
+> **Description:** The bar chart reinforces the two tier pattern: Decision Tree and Neural Network form a top group, while the remaining three models cluster 4–12 percentage points lower. Naive Bayes trails substantially, consistent with the independence assumption being poorly met with six correlated features.
 
 ***
 
@@ -473,6 +490,8 @@ dt_cv_pred  = predict(dt_cv_model, df_test)
 confusionMatrix(dt_cv_pred, df_test$acceptability)$overall["Accuracy"]
 ```
 
+> **Insight:** Cross-validated accuracy (97.5%) slightly exceeds the single split baseline (96.5%), confirming the Decision Tree's strong and stable performance.
+
 ## Naive Bayes with CV
 
 ```{r cv-nb}
@@ -482,6 +501,8 @@ nb_cv_model = train(df_train[-7], df_train$acceptability,
 nb_cv_pred  = predict(nb_cv_model, df_test)
 confusionMatrix(nb_cv_pred, df_test$acceptability)$overall["Accuracy"]
 ```
+
+> **Insight:** Naive Bayes accuracy remains at 84.0%, unchanged from the baseline, indicating its limitations are structural rather than a product of the particular train/test split.
 
 ## Logistic Regression with CV
 
@@ -493,6 +514,8 @@ lg_cv_pred  = predict(lg_cv_model, df_test)
 confusionMatrix(lg_cv_pred, df_test$acceptability)$overall["Accuracy"]
 ```
 
+> **Insight:** Logistic Regression holds steady at 92.5%, closely matching its baseline of 93.0%.
+
 ## Neural Network with CV
 
 ```{r cv-nn}
@@ -503,6 +526,8 @@ nn_cv_pred  = predict(nn_cv_model, df_test)
 confusionMatrix(nn_cv_pred, df_test$acceptability)$overall["Accuracy"]
 ```
 
+> **Insight:** The Neural Network reaches 97.5% under CV, matching the Decision Tree and improving slightly on its 96.5% baseline.
+
 ## SVM with CV
 
 ```{r cv-svm}
@@ -512,6 +537,8 @@ svm_cv_model = ksvm(acceptability ~ ., data = df_train,
 svm_cv_pred  = predict(svm_cv_model, df_test)
 confusionMatrix(svm_cv_pred, df_test$acceptability)$overall["Accuracy"]
 ```
+
+> **Insight:** SVM accuracy remains at 92.0%, identical to the baseline.
 
 ## Cross-Validation Summary
 
@@ -528,10 +555,18 @@ cv_results = data.frame(
   ) * 100, 2)
 )
 
-knitr::kable(cv_results[order(-cv_results$CV_Accuracy), ],
-             row.names = FALSE,
-             caption = "Test Set Accuracy — 10-Fold CV Models")
+ggplot(cv_results, aes(x = reorder(Model, CV_Accuracy), y = CV_Accuracy, fill = Model)) +
+  geom_col(width = 0.7) +
+  geom_text(aes(label = sprintf("%.2f%%", CV_Accuracy)),
+            vjust = -0.4, size = 3.5) +
+  labs(title = "Test Set Accuracy — 10-Fold CV Models",
+       x = NULL, y = "CV Accuracy (%)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 20, hjust = 1)) +
+  ylim(0, max(cv_results$CV_Accuracy) * 1.15)
 ```
+> **Description:** Under 10-fold cross-validation, Decision Tree and Neural Network share the top position at 97.5%, confirming their baseline advantage is not an artefact of the particular train/test split. The ranking of all five models is consistent with the baseline results.
 
 ***
 
@@ -569,9 +604,9 @@ The accuracy may rise, fall, or stay the same:
 
 - **Tiny drop or no change** : the dropped features were mostly noise (good outcome).
 - **Large drop** : useful information was discarded.
+- **Improvement** : the model was being confused by noisy features.
 
 For Naive Bayes specifically, removing features often **improves** performance because fewer pairs of features can violate its independence assumption.
-- **Improvement** : the model was being confused by noisy features.
 
 ### Decision Tree Selected Features
 
@@ -580,6 +615,8 @@ dt_fs_model = C5.0(df_train_fs[, -4], df_train_fs$acceptability)
 dt_fs_pred  = predict(dt_fs_model, df_test_fs)
 confusionMatrix(dt_fs_pred, df_test_fs$acceptability)$overall["Accuracy"]
 ```
+
+> **Insight:** Dropping from 6 to 3 features causes a large accuracy drop (96.5% → 80.0%), indicating the Decision Tree leverages interactions among all features, including those with individually low MI scores.
 
 ### Naive Bayes Selected Features
 
@@ -599,6 +636,8 @@ lg_fs_pred  =predict(lg_fs_model, df_test)
 confusionMatrix(lg_fs_pred, df_test$acceptability)$overall["Accuracy"]
 ```
 
+> **Insight:** Logistic Regression drops from 93.0% to 80.0%, a 13 percentage-point loss, suggesting the removed features (`maint`, `lug_boot`, `doors`) contributed meaningfully to the linear decision boundary.
+
 ### SVM Selected Features
 
 ```{r fs-svm}
@@ -607,6 +646,8 @@ svm_fs_model =ksvm(acceptability ~ safety + persons + buying,
 svm_fs_pred  =predict(svm_fs_model, df_test)
 confusionMatrix(svm_fs_pred, df_test$acceptability)$overall["Accuracy"]
 ```
+
+> **Insight:** SVM drops from 92.0% to 80.0%, a 12 percentage-point decrease, showing that the margin-based classifier also depends on the full feature set.
 
 ### Neural Network Selected Features
 
@@ -619,7 +660,7 @@ confusionMatrix(factor(nn_fs_pred, levels = levels(df_test$acceptability)),
                 df_test$acceptability)$overall["Accuracy"]
 ```
 
-
+> **Insight:** The Neural Network suffers the largest absolute drop (96.5% → 79.0%), consistent with neural networks benefiting from richer input to capture feature interactions.
 
 ## Bonus — Top 4 features
 
@@ -635,10 +676,12 @@ dt_fs4_pred  =predict(dt_fs4_model, df_test_fs4)
 confusionMatrix(dt_fs4_pred, df_test_fs4$acceptability)$overall["Accuracy"]
 ```
 
+> **Insight:** Adding `maint` as a fourth feature recovers the Decision Tree to 88.0% — midway between 80.0% (top 3) and 96.5% (all 6) — confirming that each additional feature contributes incrementally and that `lug_boot` and `doors` still carry some useful signal.
+
 ### Feature Selection Summary
 
 ```{r fs-summary}
-fs_results =data.frame(
+fs_results = data.frame(
   Model = c("Decision Tree", "Naive Bayes", "Logistic Regression",
             "SVM (Linear)", "Neural Network"),
   All_Features = round(c(
@@ -659,12 +702,27 @@ fs_results =data.frame(
   ) * 100, 2)
 )
 
-fs_results$Delta =fs_results$Selected_Features - fs_results$All_Features
+fs_results$Delta = fs_results$Selected_Features - fs_results$All_Features
 
-knitr::kable(fs_results, row.names = FALSE,
-             col.names = c("Model", "All Features (%)", "Selected Features (%)", "Δ"),
-             caption = "Impact of Feature Selection on Accuracy")
+fs_long =data.frame(
+  Model    = rep(fs_results$Model, 2),
+  Features = c(rep("All 6 features", nrow(fs_results)),
+               rep("Top 3 features", nrow(fs_results))),
+  Accuracy = c(fs_results$All_Features, fs_results$Selected_Features)
+)
+
+ggplot(fs_long, aes(x = Model, y = Accuracy, color = Features, group = Features)) +
+  geom_point(size = 3) +
+  geom_line() +
+  geom_text(aes(label = sprintf("%.1f", Accuracy)),
+            vjust = -0.8, size = 3, show.legend = FALSE) +
+  labs(title = "Feature Selection on Model Accuracy",
+       x = NULL, y = "Test Accuracy (%)", color = "Features") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)) +
+  ylim(0, 110)
 ```
+> **Description:** Reducing the feature set to the top 3 by mutual information (safety, persons, buying) keeps performance comparable for most models. The Neural Network and Decision Tree in particular loses accuracy, as they benefits from richer input to model interactions between features.
 
 ***
 
@@ -693,6 +751,7 @@ nn_tuned =train(df_train[-7], df_train$acceptability,
 
 plot(nn_tuned, main = "Neural Network Tuning (Decay vs Accuracy)")
 ```
+> **Description:** Decay acts as regularisation. Too low (≈ 0) risks overfitting; too high prevents the network from learning. The optimum is `decay = `r nn_tuned$bestTune$decay`, which balances flexibility against generalisation (Kuhn, 2008).
 
 ## Decision Tree Tuning
 
@@ -710,6 +769,7 @@ dt_tuned =train(df_train[, -7], df_train[, 7],
 
 plot(dt_tuned, main = "Decision Tree Tuning (Trials vs Accuracy)")
 ```
+> **Description:** Accuracy rises sharply as `trials` increases from 1, then plateaus. The optimum (`trials = `r dt_tuned$bestTune$trials`) reflects the trade-off between bias and overfitting beyond this point, additional boosting iterations yield diminishing returns.
 
 ## Naive Bayes Tuning
 
@@ -726,6 +786,7 @@ nb_tuned =train(df_train[, -7], df_train$acceptability,
 
 plot(nb_tuned, main = "Naive Bayes Tuning (Laplace fL vs Accuracy)")
 ```
+> **Description:** Accuracy is highest at `fL = 0` (no Laplace smoothing) and decreases monotonically as smoothing increases. This indicates that zero frequency events are not a problem in this dataset, so adding pseudocounts only blurs the probability estimates.
 
 ## Logistic Regression Tuning
 
@@ -741,6 +802,7 @@ lg_tuned =train(df_train[, -7], df_train$acceptability,
 
 plot(lg_tuned, main = "Logistic Regression Tuning (Decay vs Accuracy)")
 ```
+> **Description:** A small amount of regularisation (`decay = 0.001`) slightly improves accuracy over no regularisation, but heavier decay rapidly degrades performance, suggesting the model needs most of its coefficient flexibility to separate four classes.
 
 ## SVM (Linear) Tuning
 
@@ -756,6 +818,7 @@ svm_tuned =train(acceptability ~ ., data = df_train,
 
 plot(svm_tuned, main = "SVM Tuning (Cost vs Accuracy)")
 ```
+> **Description:** Accuracy climbs steadily from a low `C` value (wide margin, many misclassifications) up to `C = 10`, then drops slightly at `C = 100` as the model begins overfitting to the training data. The optimum at `C = 10` balances margin width and classification error.
 
 ## Tuned Model Summary
 
@@ -779,11 +842,17 @@ tuned_results =data.frame(
   ) * 100, 2)
 )
 
-knitr::kable(tuned_results[order(-tuned_results$CV_Accuracy), ],
-             row.names = FALSE,
-             col.names = c("Model", "Best Parameters", "CV Accuracy (%)"),
-             caption = "Tuned Model Performance (Repeated 10-Fold CV)")
+ggplot(tuned_results, aes(y = reorder(Model, CV_Accuracy), x = CV_Accuracy, fill = Model)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = sprintf("%.2f%%", CV_Accuracy)),
+            hjust = -0.1, size = 3.5) +
+  labs(title = "Tuned Model Performance (Repeated 10-Fold CV)",
+       y = NULL, x = "CV Accuracy (%)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none") +
+  xlim(0, max(tuned_results$CV_Accuracy) * 1.15)
 ```
+> **Description:** After tuning, the ranking is largely unchanged: Decision Tree leads at 96.9%, followed closely by Neural Network at 96.2%. SVM and Logistic Regression cluster around 92.4%, and Naive Bayes remains the weakest at 83.6%. Tuning yields only marginal gains, suggesting the default configurations were already near optimal for this dataset.
 
 ***
 
@@ -797,90 +866,6 @@ This report compared five classification algorithms on the UCI Car Evaluation da
 - **Decision Tree (C5.0)** consistently performed among the top models, benefiting from its natural affinity for categorical data.
 - Feature selection to the top-3 MI-ranked features provided insight into variable importance, though accuracy generally decreased with fewer features.
 - Hyperparameter tuning via repeated cross-validation identified optimal configurations for each algorithm.
-
-***
-
-# Part 3. Presentation of Specified Results
-
-This section presents key figures with brief descriptions covering Parts 1(ii), 2a(iii) and 2b of the assignment, followed by Harvard-style references.
-
-## Figure A — Distribution of Acceptability (Part 1ii)
-
-```{r p3-dist, echo=FALSE, fig.cap="Figure A: Distribution of car acceptability ratings."}
-ggplot(df, aes(x = acceptability)) +
-  geom_bar(fill = "steelblue", width = 0.6) +
-  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5, size = 3.5) +
-  labs(title = "Figure A: Distribution of Car Acceptability",
-       x = "Acceptability", y = "Count") +
-  theme_minimal(base_size = 13)
-```
-
-> **Description:** The target variable is heavily imbalanced. The `unacc` class dominates while `vgood` is rarest. This imbalance has direct implications for evaluation — overall accuracy alone may be misleading, so per-class metrics such as sensitivity must also be considered (Lantz, 2019).
-
-## Figure B — Acceptability by Safety (Part 1ii)
-
-```{r p3-safety, echo=FALSE, fig.cap="Figure B: Safety level versus acceptability."}
-ggplot(df, aes(x = acceptability, fill = safety)) +
-  geom_bar(position = "dodge") +
-  labs(title = "Figure B: Acceptability by Safety Level",
-       x = "Acceptability", y = "Count", fill = "Safety") +
-  theme_minimal(base_size = 13)
-```
-
-> **Description:** Safety appears to be the strongest predictor of acceptability. Cars with `low` safety are *never* rated `acc`, `good`, or `vgood`, and `vgood` cars exclusively have `high` safety. This visual finding is later confirmed by both mutual information and chi-squared analysis — an example of *triangulation of evidence*.
-
-## Figure C — Mutual Information Ranking (Part 1iii)
-
-```{r p3-mi, echo=FALSE, fig.height=3.5, fig.cap="Figure C: Mutual information between each feature and acceptability."}
-ggplot(mi_df, aes(y = reorder(Feature, MI), x = MI)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(MI, 3)), hjust = -0.1, size = 3.5) +
-  labs(title = "Figure C: Mutual Information with Acceptability",
-       y = NULL, x = "Mutual Information (bits)") +
-  theme_minimal(base_size = 13) +
-  xlim(0, max(mi_df$MI) * 1.15)
-```
-
-> **Description:** Safety, persons, and buying carry the strongest signal about acceptability, while doors carries almost none. This ranking directly informs the filter-based feature selection in Part 2a(iii).
-
-## Figure D — Effect of Feature Selection on Accuracy (Part 2a iii)
-
-```{r p3-fs, echo=FALSE, fig.cap="Figure D: Test accuracy with all features versus top-3 selected features."}
-fs_long =data.frame(
-  Model    = rep(fs_results$Model, 2),
-  Features = c(rep("All 6 features", nrow(fs_results)),
-               rep("Top 3 features", nrow(fs_results))),
-  Accuracy = c(fs_results$All_Features, fs_results$Selected_Features)
-)
-
-ggplot(fs_long, aes(x = Model, y = Accuracy, fill = Features)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = sprintf("%.1f", Accuracy)),
-            position = position_dodge(width = 0.9), vjust = -0.3, size = 3) +
-  labs(title = "Figure D: Effect of Feature Selection on Model Accuracy",
-       x = NULL, y = "Test Accuracy (%)") +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)) +
-  ylim(0, 110)
-```
-
-> **Description:** Reducing the feature set to the top 3 by mutual information (safety, persons, buying) keeps performance comparable for most models. Naive Bayes in particular benefits, as fewer features mean fewer violations of its independence assumption.
-
-## Figure E — Decision Tree Hyperparameter Tuning (Part 2b)
-
-```{r p3-dt-tune, echo=FALSE, fig.cap="Figure E: C5.0 accuracy as the number of boosting trials varies."}
-plot(dt_tuned, main = "Figure E: C5.0 — Boosting Trials vs Accuracy")
-```
-
-> **Description:** Accuracy rises sharply as `trials` increases from 1, then plateaus. The optimum (`trials = `r dt_tuned$bestTune$trials`) reflects the trade-off between bias and overfitting — beyond this point, additional boosting iterations yield diminishing returns (Quinlan, 1993).
-
-## Figure F — Neural Network Hyperparameter Tuning (Part 2b)
-
-```{r p3-nn-tune, echo=FALSE, fig.cap="Figure F: Neural network accuracy across decay values."}
-plot(nn_tuned, main = "Figure F: Neural Network — Decay vs Accuracy")
-```
-
-> **Description:** Decay acts as regularisation. Too low (≈ 0) risks overfitting; too high prevents the network from learning. The optimum is `decay = `r nn_tuned$bestTune$decay`, which balances flexibility against generalisation (Kuhn, 2008).
 
 ***
 
